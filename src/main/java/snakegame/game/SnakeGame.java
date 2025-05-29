@@ -14,14 +14,14 @@ import java.util.function.Consumer;
 public class SnakeGame extends JPanel implements ActionListener, KeyListener {
     private final int BOARD_WIDTH = 600; // 15 * 40 = 600
     private final int BOARD_HEIGHT = 600; // 15 * 40 = 600
-    private final int STATUS_HEIGHT = 80;
+    private final int STATUS_HEIGHT = 100; // 80에서 100으로 증가
     private final int UNIT_SIZE = 40; // 600 / 15 = 40
     private final int GRID_SIZE = 15; // 15x15 격자
     private final int DELAY = 100;
-    private final int GAME_TIME = 30; // 3분 = 180초
+    private final int GAME_TIME = 30; // 30초
 
     private ArrayList<Point> snake;
-    private Point apple;
+    private ArrayList<Point> apples; // 여러 개의 사과를 담을 리스트
     private Point bomb;
     private char direction = 'R';
     private boolean running = false;
@@ -33,13 +33,15 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
     private int timeLeft = GAME_TIME;
     private boolean gameOver = false;
     private boolean hasBomb = false;
+    private int appleCount = 3; // 기본 사과 개수
 
-    // 이미지 변수들
     private BufferedImage appleImage;
     private BufferedImage bombImage;
+    private BufferedImage scoreIcon;
+    private BufferedImage trophyIcon;
+    private BufferedImage timeIcon;
     private Graphics2D g;
 
-    // SnakeGame 클래스에 새로운 필드 추가
     private boolean paused = false;
     private JPanel pausePanel;
     private JButton resumeButton;
@@ -56,12 +58,41 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
         // 이미지 로드
         loadImages();
 
+        // 사과 개수 선택
+        selectAppleCount();
+
         startGame();
+    }
+
+    private void selectAppleCount() {
+        String[] options = {"1개", "2개", "3개", "4개", "5개"};
+        String selected = (String) JOptionPane.showInputDialog(
+                null,
+                "사과 개수를 선택하세요:",
+                "사과 개수 설정",
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                options,
+                options[2] // 기본값: 3개
+        );
+
+        if (selected != null) {
+            switch (selected) {
+                case "1개": appleCount = 1; break;
+                case "2개": appleCount = 2; break;
+                case "3개": appleCount = 3; break;
+                case "4개": appleCount = 4; break;
+                case "5개": appleCount = 5; break;
+                default: appleCount = 3; break;
+            }
+        } else {
+            appleCount = 3; // 취소 시 기본값
+        }
     }
 
     private void loadImages() {
         try {
-            // 이미지 파일 로드
+            // 게임 이미지 파일 로드
             appleImage = ImageIO.read(Objects.requireNonNull(getClass().getResourceAsStream("/images/apple2.png")));
             bombImage = ImageIO.read(Objects.requireNonNull(getClass().getResourceAsStream("/images/bomb4.png")));
 
@@ -74,16 +105,110 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
             }
 
         } catch (IOException e) {
-            System.out.println("이미지 로딩 실패: " + e.getMessage());
+            System.out.println("게임 이미지 로딩 실패: " + e.getMessage());
             // 기본 이미지로 대체
             appleImage = createDefaultAppleImage();
             bombImage = createDefaultBombImage();
         } catch (Exception e) {
-            System.out.println("이미지 로딩 중 오류: " + e.getMessage());
+            System.out.println("게임 이미지 로딩 중 오류: " + e.getMessage());
             // 기본 이미지로 대체
             appleImage = createDefaultAppleImage();
             bombImage = createDefaultBombImage();
         }
+
+        // 상태바 아이콘 로드
+        loadStatusIcons();
+    }
+
+    private void loadStatusIcons() {
+        try {
+            // 상태바 아이콘 이미지 파일 로드
+            scoreIcon = ImageIO.read(Objects.requireNonNull(getClass().getResourceAsStream("/images/Apple.png")));
+            trophyIcon = ImageIO.read(Objects.requireNonNull(getClass().getResourceAsStream("/images/Trophy.png")));
+            timeIcon = ImageIO.read(Objects.requireNonNull(getClass().getResourceAsStream("/images/Time.png")));
+
+        } catch (IOException e) {
+            System.out.println("상태바 아이콘 로딩 실패: " + e.getMessage());
+            // 기본 아이콘으로 대체
+            createDefaultStatusIcons();
+        } catch (Exception e) {
+            System.out.println("상태바 아이콘 로딩 중 오류: " + e.getMessage());
+            // 기본 아이콘으로 대체
+            createDefaultStatusIcons();
+        }
+    }
+
+    private void createDefaultStatusIcons() {
+        int iconSize = 48; // 32에서 48로 증가
+
+        // 점수 아이콘 (별 모양) - 기본 아이콘
+        scoreIcon = new BufferedImage(iconSize, iconSize, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = scoreIcon.createGraphics();
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // 별 모양 그리기 (크기에 맞게 조정)
+        int[] xPoints = {iconSize/2, iconSize/2 + 6, iconSize - 3, iconSize/2 + 12, iconSize/2 + 18, iconSize/2, iconSize/2 - 18, iconSize/2 - 12, 3, iconSize/2 - 6};
+        int[] yPoints = {3, iconSize/2 - 9, iconSize/2 - 9, iconSize/2 + 3, iconSize - 3, iconSize/2 + 12, iconSize - 3, iconSize/2 + 3, iconSize/2 - 9, iconSize/2 - 9};
+
+        GradientPaint starGradient = new GradientPaint(0, 0, new Color(255, 215, 0), iconSize, iconSize, new Color(255, 165, 0));
+        g2d.setPaint(starGradient);
+        g2d.fillPolygon(xPoints, yPoints, 10);
+
+        g2d.setColor(new Color(218, 165, 32));
+        g2d.setStroke(new BasicStroke(2f));
+        g2d.drawPolygon(xPoints, yPoints, 10);
+        g2d.dispose();
+
+        // 트로피 아이콘 (최고점수) - 기본 아이콘
+        trophyIcon = new BufferedImage(iconSize, iconSize, BufferedImage.TYPE_INT_ARGB);
+        g2d = trophyIcon.createGraphics();
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // 트로피 컵 (크기 증가)
+        GradientPaint trophyGradient = new GradientPaint(0, 0, new Color(255, 215, 0), iconSize, iconSize, new Color(255, 140, 0));
+        g2d.setPaint(trophyGradient);
+        g2d.fillOval(iconSize/4, iconSize/4, iconSize/2, iconSize/2);
+
+        // 트로피 손잡이 (크기 증가)
+        g2d.setStroke(new BasicStroke(4));
+        g2d.drawArc(3, iconSize/3, iconSize/5, iconSize/2, 90, 180);
+        g2d.drawArc(iconSize - iconSize/5 - 3, iconSize/3, iconSize/5, iconSize/2, 270, 180);
+
+        // 트로피 받침 (크기 증가)
+        g2d.fillRect(iconSize/3, iconSize - iconSize/3, iconSize/3, iconSize/6);
+        g2d.fillRect(iconSize/4, iconSize - iconSize/6, iconSize/2, iconSize/12);
+
+        g2d.setColor(new Color(218, 165, 32));
+        g2d.setStroke(new BasicStroke(2f));
+        g2d.drawOval(iconSize/4, iconSize/4, iconSize/2, iconSize/2);
+        g2d.dispose();
+
+        // 시간 아이콘 (시계) - 기본 아이콘
+        timeIcon = new BufferedImage(iconSize, iconSize, BufferedImage.TYPE_INT_ARGB);
+        g2d = timeIcon.createGraphics();
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // 시계 배경 (크기 증가)
+        GradientPaint clockGradient = new GradientPaint(0, 0, new Color(100, 149, 237), iconSize, iconSize, new Color(65, 105, 225));
+        g2d.setPaint(clockGradient);
+        g2d.fillOval(3, 3, iconSize - 6, iconSize - 6);
+
+        // 시계 테두리 (크기 증가)
+        g2d.setColor(new Color(25, 25, 112));
+        g2d.setStroke(new BasicStroke(3));
+        g2d.drawOval(3, 3, iconSize - 6, iconSize - 6);
+
+        // 시계 바늘 (크기 증가)
+        g2d.setColor(Color.WHITE);
+        g2d.setStroke(new BasicStroke(3));
+        int centerX = iconSize/2;
+        int centerY = iconSize/2;
+        g2d.drawLine(centerX, centerY, centerX, centerY - iconSize/3); // 시침
+        g2d.drawLine(centerX, centerY, centerX + iconSize/4, centerY - iconSize/5); // 분침
+
+        // 중심점 (크기 증가)
+        g2d.fillOval(centerX - 3, centerY - 3, 6, 6);
+        g2d.dispose();
     }
 
     private BufferedImage createDefaultAppleImage() {
@@ -145,12 +270,18 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
 
     public void startGame() {
         snake = new ArrayList<>();
+        apples = new ArrayList<>(); // 사과 리스트 초기화
+
         // 초기 뱀 위치 (3개 세그먼트)
         snake.add(new Point(0, STATUS_HEIGHT));
         snake.add(new Point(UNIT_SIZE, STATUS_HEIGHT));
         snake.add(new Point(UNIT_SIZE * 2, STATUS_HEIGHT));
 
-        newApple();
+        // 지정된 개수만큼 사과 생성
+        for (int i = 0; i < appleCount; i++) {
+            newApple();
+        }
+
         newBomb();
         hasBomb = true;
         timeLeft = GAME_TIME;
@@ -191,9 +322,11 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
             g.setStroke(new BasicStroke(2));
             g.drawRect(0, STATUS_HEIGHT, BOARD_WIDTH, BOARD_HEIGHT);
 
-            // 사과 그리기 (이미지 사용)
+            // 모든 사과 그리기 (이미지 사용)
             if (appleImage != null) {
-                g.drawImage(appleImage, apple.x, apple.y, null);
+                for (Point apple : apples) {
+                    g.drawImage(appleImage, apple.x, apple.y, null);
+                }
             }
 
             // 폭탄 그리기 (이미지 사용)
@@ -219,15 +352,15 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
             // 반투명한 오버레이 추가
             g.setColor(new Color(0, 0, 0, 100));
             g.fillRect(0, STATUS_HEIGHT, BOARD_WIDTH, BOARD_HEIGHT);
-        
+
             // "일시정지" 텍스트 표시
             g.setColor(Color.WHITE);
             g.setFont(new Font("맑은 고딕", Font.BOLD, 32));
             FontMetrics metrics = g.getFontMetrics();
             String pauseText = "일시정지";
-            g.drawString(pauseText, 
-                (BOARD_WIDTH - metrics.stringWidth(pauseText)) / 2,
-                STATUS_HEIGHT + BOARD_HEIGHT / 4);
+            g.drawString(pauseText,
+                    (BOARD_WIDTH - metrics.stringWidth(pauseText)) / 2,
+                    STATUS_HEIGHT + BOARD_HEIGHT / 4 + 10);
         }
     }
 
@@ -265,38 +398,49 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
         // 텍스트 정보
         g.setColor(Color.WHITE);
 
-        // 한글 폰트 설정
-        Font koreanFont = new Font("맑은 고딕", Font.BOLD, 14);
+        // 한글 폰트 설정 (크기 증가)
+        Font koreanFont = new Font("맑은 고딕", Font.BOLD, 24); // 18에서 24로 증가
         if (!koreanFont.getFamily().equals("맑은 고딕")) {
-            // 맑은 고딕이 없으면 다른 한글 폰트 시도
-            koreanFont = new Font("굴림", Font.BOLD, 14);
+            koreanFont = new Font("굴림", Font.BOLD, 24);
             if (!koreanFont.getFamily().equals("굴림")) {
-                // 한글 폰트가 없으면 기본 폰트 사용
-                koreanFont = new Font(Font.SANS_SERIF, Font.BOLD, 14);
+                koreanFont = new Font(Font.SANS_SERIF, Font.BOLD, 24);
             }
         }
         g.setFont(koreanFont);
 
-        String currentScoreText = "현재점수: " + score;
-        String highScoreText = "최고점수: " + highScore;
-        String timeText = "남은시간: " + formatTime(timeLeft);
-
-        // 텍스트 위치 계산
         FontMetrics fm = g.getFontMetrics();
         int textHeight = fm.getHeight();
+        int iconSize = 48; // 32에서 48로 증가
+        int yPos = (STATUS_HEIGHT + textHeight) / 2 - 5;
+        int iconYPos = (STATUS_HEIGHT - iconSize) / 2;
 
-        // 첫 번째 줄
-        int y1 = STATUS_HEIGHT / 3 + textHeight / 3;
-        g.drawString(currentScoreText, 15, y1);
+        // 3개 영역으로 균등 분할
+        int sectionWidth = BOARD_WIDTH / 3;
 
-        // 시간은 오른쪽 정렬
+        // 1. 현재점수 (왼쪽)
+        int scoreX = 25; // 여백 증가
+        if (scoreIcon != null) {
+            g.drawImage(scoreIcon, scoreX, iconYPos, iconSize, iconSize, null);
+        }
+        String scoreText = String.valueOf(score);
+        g.drawString(scoreText, scoreX + iconSize + 15, yPos); // 간격 증가
+
+        // 2. 최고점수 (가운데) - 왼쪽으로 5픽셀 이동
+        int highScoreX = sectionWidth + (sectionWidth - iconSize - fm.stringWidth(String.valueOf(highScore)) - 15) / 2 - 5;
+        if (trophyIcon != null) {
+            g.drawImage(trophyIcon, highScoreX, iconYPos, iconSize, iconSize, null);
+        }
+        String highScoreText = String.valueOf(highScore);
+        g.drawString(highScoreText, highScoreX + iconSize + 15, yPos); // 간격 증가
+
+        // 3. 남은시간 (오른쪽)
+        String timeText = formatTime(timeLeft);
         int timeWidth = fm.stringWidth(timeText);
-        g.drawString(timeText, BOARD_WIDTH - timeWidth - 15, y1);
-
-        // 두 번째 줄 (최고점수는 가운데)
-        int y2 = STATUS_HEIGHT * 2 / 3 + textHeight / 3;
-        int highScoreWidth = fm.stringWidth(highScoreText);
-        g.drawString(highScoreText, (BOARD_WIDTH - highScoreWidth) / 2, y2);
+        int timeX = BOARD_WIDTH - timeWidth - iconSize - 40; // 여백 증가
+        if (timeIcon != null) {
+            g.drawImage(timeIcon, timeX, iconYPos, iconSize, iconSize, null);
+        }
+        g.drawString(timeText, timeX + iconSize + 15, yPos); // 간격 증가
     }
 
     public void drawSnakeSegment(Graphics2D g, int x, int y, Color baseColor, boolean isHead) {
@@ -318,16 +462,6 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
         g.setColor(new Color(baseColor.getRed() - 20, baseColor.getGreen() - 20, baseColor.getBlue() - 20));
         g.setStroke(new BasicStroke(2));
         g.drawRoundRect(x + 2, y + 2, UNIT_SIZE - 4, UNIT_SIZE - 4, 12, 12);
-
-        // 머리에 눈 추가
-        /*if (isHead) {
-            g.setColor(Color.WHITE);
-            g.fillOval(x + 10, y + 10, 8, 8);
-            g.fillOval(x + 22, y + 10, 8, 8);
-            g.setColor(Color.BLACK);
-            g.fillOval(x + 12, y + 12, 4, 4);
-            g.fillOval(x + 24, y + 12, 4, 4);
-        }*/
     }
 
     public String formatTime(int seconds) {
@@ -343,7 +477,7 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
             y = random.nextInt(GRID_SIZE) * UNIT_SIZE + STATUS_HEIGHT;
         } while (isPositionOccupied(x, y));
 
-        apple = new Point(x, y);
+        apples.add(new Point(x, y));
     }
 
     public void newBomb() {
@@ -379,9 +513,11 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
             }
         }
 
-        // 사과와 겹치는지 확인
-        if (apple != null && apple.equals(pos)) {
-            return true;
+        // 모든 사과와 겹치는지 확인
+        for (Point apple : apples) {
+            if (apple.equals(pos)) {
+                return true;
+            }
         }
 
         // 폭탄과 겹치는지 확인
@@ -412,12 +548,26 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
 
         snake.add(head);
 
-        // 사과를 먹었는지 확인
-        if (head.equals(apple)) {
+        // 모든 사과와 충돌 확인
+        Point eatenApple = null;
+        for (Point apple : apples) {
+            if (head.equals(apple)) {
+                eatenApple = apple;
+                break;
+            }
+        }
+
+        if (eatenApple != null) {
+            // 사과를 먹었을 때
             score++;
             if (score > highScore) {
                 highScore = score;
             }
+
+            // 먹은 사과 제거
+            apples.remove(eatenApple);
+
+            // 새 사과 생성
             newApple();
 
             // 폭탄이 없으면 생성, 있으면 이동
@@ -427,6 +577,7 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
                 moveBomb();
             }
         } else {
+            // 사과를 먹지 않았으면 꼬리 제거
             snake.remove(0);
         }
     }
@@ -519,11 +670,22 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
         hasBomb = false;
         timeLeft = GAME_TIME;
         snake.clear();
+        apples.clear(); // 사과 리스트 초기화
+
         snake.add(new Point(0, STATUS_HEIGHT));
         snake.add(new Point(UNIT_SIZE, STATUS_HEIGHT));
         snake.add(new Point(UNIT_SIZE * 2, STATUS_HEIGHT));
-        newApple();
+
+        // 사과 개수 다시 선택
+        selectAppleCount();
+
+        // 지정된 개수만큼 사과 생성
+        for (int i = 0; i < appleCount; i++) {
+            newApple();
+        }
+
         running = true;
+        paused = false;
         timer.restart();
         gameTimer.restart();
     }
@@ -576,59 +738,61 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
     // pauseGame 메소드 구현
     public void pauseGame() {
         if (!gameOver) {
-            paused = true;
-            timer.stop();
-            gameTimer.stop();
-        
-            // 일시정지 패널 생성
-            pausePanel = new JPanel();
-            pausePanel.setLayout(new BoxLayout(pausePanel, BoxLayout.Y_AXIS));
-            pausePanel.setBackground(new Color(0, 0, 0, 150));
-            pausePanel.setBounds(BOARD_WIDTH/4, STATUS_HEIGHT + BOARD_HEIGHT/4, 
-                               BOARD_WIDTH/2, BOARD_HEIGHT/2);
-        
-            // 버튼 스타일 설정을 위한 공통 메소드
-            Consumer<JButton> styleButton = button -> {
-                button.setFont(new Font("맑은 고딕", Font.BOLD, 16));
-                button.setBackground(new Color(63, 81, 181));
-                button.setForeground(Color.WHITE);
-                button.setFocusPainted(false);
-                button.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
-                button.setAlignmentX(Component.CENTER_ALIGNMENT);
-                button.setMaximumSize(new Dimension(200, 40));
-            };
+            if (!paused) {
+                paused = true;
+                timer.stop();
+                gameTimer.stop();
 
-            // 재개 버튼
-            resumeButton = new JButton("게임 재개");
-            styleButton.accept(resumeButton);
-            resumeButton.addActionListener(e -> resumeGame());
+                // 일시정지 패널 생성
+                pausePanel = new JPanel();
+                pausePanel.setLayout(new BoxLayout(pausePanel, BoxLayout.Y_AXIS));
+                pausePanel.setBackground(new Color(0, 0, 0, 150));
+                pausePanel.setBounds(BOARD_WIDTH/4, STATUS_HEIGHT + BOARD_HEIGHT/4,
+                        BOARD_WIDTH/2, BOARD_HEIGHT/2);
 
-            // 재시작 버튼
-            restartButton = new JButton("게임 재시작");
-            styleButton.accept(restartButton);
-            restartButton.addActionListener(e -> {
-                removeButtons();
-                restartGame();
-            });
+                // 버튼 스타일 설정을 위한 공통 메소드
+                Consumer<JButton> styleButton = button -> {
+                    button.setFont(new Font("맑은 고딕", Font.BOLD, 16));
+                    button.setBackground(new Color(63, 81, 181));
+                    button.setForeground(Color.WHITE);
+                    button.setFocusPainted(false);
+                    button.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+                    button.setAlignmentX(Component.CENTER_ALIGNMENT);
+                    button.setMaximumSize(new Dimension(200, 40));
+                };
 
-            // 나가기 버튼
-            exitButton = new JButton("게임 종료");
-            styleButton.accept(exitButton);
-            exitButton.addActionListener(e -> System.exit(0));
+                // 재개 버튼
+                resumeButton = new JButton("돌아가기");
+                styleButton.accept(resumeButton);
+                resumeButton.addActionListener(e -> resumeGame());
 
-            // 버튼 사이 여백 추가
-            pausePanel.add(Box.createVerticalStrut(20));
-            pausePanel.add(resumeButton);
-            pausePanel.add(Box.createVerticalStrut(10));
-            pausePanel.add(restartButton);
-            pausePanel.add(Box.createVerticalStrut(10));
-            pausePanel.add(exitButton);
-            pausePanel.add(Box.createVerticalStrut(20));
+                // 재시작 버튼
+                restartButton = new JButton("게임 재시작");
+                styleButton.accept(restartButton);
+                restartButton.addActionListener(e -> {
+                    removeButtons();
+                    restartGame();
+                });
 
-            this.setLayout(null);
-            this.add(pausePanel);
-            this.revalidate();
-            this.repaint();
+                // 나가기 버튼
+                exitButton = new JButton("게임 종료");
+                styleButton.accept(exitButton);
+                exitButton.addActionListener(e -> System.exit(0));
+
+                // 버튼 사이 여백 추가
+                pausePanel.add(Box.createVerticalStrut(20));
+                pausePanel.add(resumeButton);
+                pausePanel.add(Box.createVerticalStrut(10));
+                pausePanel.add(restartButton);
+                pausePanel.add(Box.createVerticalStrut(10));
+                pausePanel.add(exitButton);
+                pausePanel.add(Box.createVerticalStrut(20));
+
+                this.setLayout(null);
+                this.add(pausePanel);
+                this.revalidate();
+                this.repaint();
+            }
         }
     }
 
